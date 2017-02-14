@@ -23,33 +23,39 @@ class App extends Component {
     this.state = {
       inventory: [],
       submitted: false,
-      edit: false
+      edit: false,
+      editInput: []
     }
-  }
+  //Handle Actions / Binds?
+  this._formChange = this._formChange.bind(this);
+  this._handleClick = this._handleClick.bind(this);
+  this._handleButton = this._handleButton.bind(this);
 
+
+  }
   componentDidMount() {
     this._loadFirebaseData();
   }
 
-  //Loading the data from the firebase 
-  _loadFirebaseData() { 
-// 'this' will mean something else outside of the funciton 
-// using 'self' as way to set 'this' setState in function
+  _loadFirebaseData() {   // 'this' will mean something else outside of the funciton - using 'self' as way to set 'this' setState in function
     var self = this;
 
     //this empties out the array
     this.setState({ inventory: [] });
 
-    //Getting data from firebase 
-    // forEach(action) returns boolean / guarantees the children (data entered) will be iterated in their query order.
+    //pulls data from firebase / forEach(action) returns boolean 
     firebase.database().ref().once('value').then((snapshot) => {
-      snapshot.forEach(function (data) { 
+      snapshot.forEach(function (data) {   
         self.setState({inventory: self.state.inventory.concat(data.val())
         });
       });
     });
   }
 
+  _formChange(event) {
+    this.prop.onChange(event.target.value);
+  }
+    // handle delete event 
   _handleClick(event) {
     event.preventDefault();
     console.log(event.target.value);
@@ -61,20 +67,73 @@ class App extends Component {
     //Reload the data
     this._loadFirebaseData();
   }
+    //Edit event handle 
+   _handleButton(event){
+     event.preventDefault();
+        //identify the value being targeted 
+     var itemId = event.target.value;
+     //set the state to receive and edit the data
+     this.setState({
+      edit: true,
+      editUuid: itemId,  // targets the UUID - 
+      editInput: []
+     });
 
-   handleButton(event){
-    var myUuid = uuid;
-    //var edit = true;
-      return firebase.database().ref().child('/inventoryapp/' + uuid)
-      .update({ inventory: myUuid });
-    
+     var self = this; // we loose this once we go into firebase data 
+
+      //pulls data for database / request info by child  - Parent = form as Child = input 
+       firebase.database().ref().child("InventoryApp").orderByChild("uuid").on('value', 
+       (snapshot) => { snapshot.forEach(function(child){
+         var value = child.val();
+         var name = value.inventory.name;
+         var quantity = value.inventory.quantity;
+         var description = value.inventory.description;
+         var uuid = value.inventory.uuid;
+
+         var editInput = {};
+
+         if(uuid === itemId){
+           editInput['name'] = name;
+           editInput['quantity'] = quantity;
+           editInput['description'] = description;
+           editInput['uuid'] = uuid;
+         
+           self.setSelf({editInput: editInput});
+          }
+        });
+      }
+    )
   }
+  //update data info - editScreen
+  _upDate(event){
+    event.preventDefault();
 
-  //Adding our function that will handle our form submit 
+    const updateItem = {};
+
+    event.target.childNodes.forEach(function(e){
+      if (e.tagName === "INPUT") {
+        updateItem[e.tagName] = e.value
+      } else {
+        e.value = null
+      }
+    });
+    this.setState({editInput: false});
+
+    var uuid = updateItem['uuid'];
+
+    var self = this;
+
+    firebase.database().ref().child('/inventoryApp/' + uuid)
+    .update({inventory: updateItem});
+
+    self._loadFirebaseData();
+
+  }
+  //handles Data input into firebase 
   onSubmit(event) {
     event.preventDefault();
 
-    const details = {}       // const = var // empty array set to details
+    const details = {}       // CONST is equal to VAR
     const id = uuid.v1();
 
     //Go through each element in the form making sure it's an input element
@@ -103,23 +162,27 @@ class App extends Component {
 
 
   render() {
-    //var inputForm;
-    //var table;
-    //var rows;
-    // output may mean something
+    var inputForm;
+    var table;
+    var rows;
+    var editScreen;
     var output;
+     
 
-    // if (edt true)
-    // enter code  / encompass all of the return 
-/*var output = function(){
-  if(edit) {
-   return  (rows) 
-  } else
-*/
-  
+    
+  editScreen = (<span>
+            <h2>Edit your inventory</h2>
+              <form onSubmit={this._upDate.bind(this)}>
+                <input type="text" value={this.state.editInput.name} onChange={this._formChange} name="name" />
+                <input type="text" value={this.state.editInput.quantity} onChange={this._formChange} name="description"/>
+                <input type="text" value={this.state.editInput.description} onChange={this._formChange} name="quantity"/>
+                <input type="text" className="hideinput" value={this.state.editInput.uuid} name="uuid" />
+                <button type="submit">Submit</button>
+                </form>
+            </span>);  
 
 
-   var inputForm = <span>
+  inputForm = <span>
       <h2>Please enter your inventory Item</h2>
       <form onSubmit={this.onSubmit.bind(this)}>
         <input type="text" placeholder="Enter Name..." name="name" />
@@ -129,11 +192,9 @@ class App extends Component {
       </form>
     </span>
 
-    //Only runs if the form has been submitted
-    // if (this.state.submitted && this.state.inventory.length) {
 
-    var self = this;
-    var rows = this.state.inventory.map(function (item, index) {
+  var self = this;
+  rows = this.state.inventory.map(function (item, index) {
       return Object.keys(item).map(function (s) {
 
         return (
@@ -141,14 +202,14 @@ class App extends Component {
             <th> {item[s].inventory.name} </th>
             <th> {item[s].inventory.description} </th>
             <th> {item[s].inventory.quantity} </th>
-            <th><button value={item[s].inventory.uuid} onClick={self._handleClick.bind(self)}>Delete</button> </th>
-            <th><button value={item[s].inventory.uuid} onButton={self.handleButton.bind(self)}>Edit </button></th>
+            <th><button value={item[s].inventory.uuid} onClick={self._handleClick}>Delete</button> </th>
+            <th><button value={item[s].inventory.uuid} onClick={self._handleButton}>Edit</button></th>
           </tr>
         )
       });
     });
 
-   var table = (
+  table = (
       <span>
         <Table striped bordered condensed hover>
           <thead>
@@ -167,8 +228,18 @@ class App extends Component {
       </span>
     )
 
-//output = replace return below
-    return (
+if(this.state.edit){
+  output=(
+    <div className='App'>
+      <div className="App-header">
+        <h2> Inventory App </h2>
+      </div>
+      <div className="text-center" >
+          {editScreen}
+      </div>
+  </div>);
+} else {
+    output =(
       <div className="App">
         <div className="App-header">
           <h2>React-JS-InventoryApp</h2>
@@ -178,14 +249,18 @@ class App extends Component {
           <br />
           {table}
         </div>
-      </div>
-    );
+    </div>);
   }
 
-// return --> output:
-//  }
-
+    return  (
+      <div className="App">
+      {output}
+      </div>
+    );
+     
 }
+}
+
 
 
 export default App;
