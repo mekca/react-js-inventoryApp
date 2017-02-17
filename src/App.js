@@ -1,11 +1,13 @@
 import React, { Component } from 'react';
 import './App.css';
 import { Table } from 'react-bootstrap';
+import FormView from './Components/FormView';
 
 //Firebase dependencies
 var firebase = require('firebase');
 var uuid = require('uuid');
 
+//connects to firebase/data
 var config = {
   apiKey: "AIzaSyC7Zg3IHEq10xN_m-4sDxL1QgZpAjYP7Ss",
   authDomain: "react-js-inventory-app.firebaseapp.com",
@@ -15,140 +17,175 @@ var config = {
 };
 firebase.initializeApp(config);
 
-
+//start of component 
 class App extends Component {
 
   constructor(props) {
+
     super(props);
+
     this.state = {
       inventory: [],
       submitted: false,
-      edit: false,
-      editInput: []
+      editMode: false,
+      editFields: [],
+      typed: '',
+      change: []
     }
-  //Handle Actions / Binds?
-  this._formChange = this._formChange.bind(this);
-  this._handleClick = this._handleClick.bind(this);
-  this._handleButton = this._handleButton.bind(this);
 
+    //Handle Actions
+    this._updateFireBaseRecord = this._updateFireBaseRecord.bind(this); //Updates the firebase record
+    this._setFireBaseDataEditTable = this._setFireBaseDataEditTable.bind(this); //Sets the UUID we are going to modify
+    this.onSubmit = this.onSubmit.bind(this);
+    this.handleChange = this.handleChange.bind(this);
 
   }
+
   componentDidMount() {
     this._loadFirebaseData();
   }
 
-  _loadFirebaseData() {   // 'this' will mean something else outside of the funciton - using 'self' as way to set 'this' setState in function
+  //Loading the data from firebase
+  _loadFirebaseData() {
     var self = this;
 
-    //this empties out the array
+    //Empty any records before we assign new ones
     this.setState({ inventory: [] });
 
-    //pulls data from firebase / forEach(action) returns boolean 
+
+    //Getting data from firebase
     firebase.database().ref().once('value').then((snapshot) => {
-      snapshot.forEach(function (data) {   
-        self.setState({inventory: self.state.inventory.concat(data.val())
+      snapshot.forEach(function (data) {
+
+        //console.log(data.val());
+        self.setState({
+          inventory: self.state.inventory.concat(data.val())
         });
       });
     });
+
   }
 
-  _formChange(event) {
-    this.prop.onChange(event.target.value);
+  //Allows us to edit the fields and set the data back to itself.
+  //It's a ReactJS requirement
+  //Here's a good reference: http://stackoverflow.com/questions/22220873/how-to-reload-input-value-in-react-javascript-with-virtual-dom
+  handleChange(event) {
+    var change = {};
+    change[event.target.name] = event.target.value;
+    this.setState({ editFields: change });
   }
-    // handle delete event 
-  _handleClick(event) {
+
+  _setFireBaseDataEditTable(event) {
     event.preventDefault();
-    console.log(event.target.value);
 
-    //remove one element
-    var uuid = event.target.value;
-    firebase.database().ref().child('inventoryapp/' + uuid).remove();
+    const recordId = event.target.value;
 
-    //Reload the data
-    this._loadFirebaseData();
-  }
-    //Edit event handle 
-   _handleButton(event){
-     event.preventDefault();
-        //identify the value being targeted 
-     var itemId = event.target.value;
-     //set the state to receive and edit the data
-     this.setState({
-      edit: true,
-      editUuid: itemId,  // targets the UUID - 
-      editInput: []
-     });
+    console.log("The firebase uuid is", event.target.value);
 
-     var self = this; // we loose this once we go into firebase data 
+    this.setState({
+      editMode: true,
+      editUUID: recordId,
+      editFields: []
+    });
 
-      //pulls data for database / request info by child  - Parent = form as Child = input 
-       firebase.database().ref().child("InventoryApp").orderByChild("uuid").on('value', 
-       (snapshot) => { snapshot.forEach(function(child){
-         var value = child.val();
-         var name = value.inventory.name;
-         var quantity = value.inventory.quantity;
-         var description = value.inventory.description;
-         var uuid = value.inventory.uuid;
 
-         var editInput = {};
 
-         if(uuid === itemId){
-           editInput['name'] = name;
-           editInput['quantity'] = quantity;
-           editInput['description'] = description;
-           editInput['uuid'] = uuid;
-         
-           self.setSelf({editInput: editInput});
+    var self = this; //We loose what this is once we go into the firebase database
+
+    //Query the firebase data
+    firebase.database().ref().child("inventoryapp").orderByChild("uuid").on('value',
+      (snapshot) => {
+        snapshot.forEach(function (child) {
+          //console.log(child.val()) // NOW THE CHILDREN PRINT IN ORDER
+          var value = child.val();
+          var name = value.inventory.name;
+          var quantity = value.inventory.quantity;
+          var description = value.inventory.description;
+          var uuid = value.inventory.uuid;
+
+          var editFields = {};
+
+          if (uuid === recordId) {
+            //console.log(value);
+            editFields["name"] = name;
+            editFields["quantity"] = quantity;
+            editFields["description"] = description;
+            editFields["uuid"] = uuid;
+
+            self.setState({ editFields: editFields });
+
           }
         });
       }
     )
   }
-  //update data info - editScreen
-  _upDate(event){
+
+  _updateFireBaseRecord(event) {
     event.preventDefault();
 
-    const updateItem = {};
-
-    event.target.childNodes.forEach(function(e){
-      if (e.tagName === "INPUT") {
-        updateItem[e.tagName] = e.value
-      } else {
-        e.value = null
+    //Getting the values of each child type input
+    var details = {};
+    event.target.childNodes.forEach(function (el) {
+      if (el.tagName === 'INPUT') {
+        details[el.name] = el.value
       }
     });
-    this.setState({editInput: false});
 
-    var uuid = updateItem['uuid'];
+    console.log("Data has been submitted!!!!");
 
+    var uuid = details["uuid"];
     var self = this;
 
-    firebase.database().ref().child('/inventoryApp/' + uuid)
-    .update({inventory: updateItem});
+    firebase.database().ref().child('/inventoryapp/' + uuid)
+      .update({ inventory: details });
 
-    self._loadFirebaseData();
+    this._loadFirebaseData();
 
+    //Resetting the property value
+    this.setState({
+      editMode: false
+    });
   }
-  //handles Data input into firebase 
+
+  handleCancel(event) {
+    this.setState({ editmode: false });
+  }
+
+  _handleClick(event) {
+    event.preventDefault();
+
+    //Remove one element
+    var uuid = event.target.value;
+
+    firebase.database().ref().child('inventoryapp/' + uuid).remove();
+
+    //Reload the data
+    this._loadFirebaseData();
+  }
+
+
+  //Adding our function that will handle our form submit 
   onSubmit(event) {
     event.preventDefault();
 
-    const details = {}       // CONST is equal to VAR
-    const id = uuid.v1();
+    //Creating our initial variables
+    const details = {};
+    const id = uuid.v1(); //generating our unique key
 
     //Go through each element in the form making sure it's an input element
-    //details[name:'value'] / details [description: 'value']
-    event.target.childNodes.forEach(function (i) {
-      if (i.tagName === 'INPUT') {
-        details[i.name] = i.value
+    event.target.childNodes.forEach(function (el) {
+      if (el.tagName === 'INPUT') {
+        details[el.name] = el.value
       } else {
-        i.value = null
+        el.value = null
       }
 
+      //Adding one more element uuid
       details['uuid'] = id;
+    });
 
-    })
 
+    //Saving to firebase
     firebase.database().ref('inventoryapp/' + id).set({
       inventory: details
     });
@@ -158,109 +195,17 @@ class App extends Component {
     })
 
     this._loadFirebaseData();
+
   }
-
-
   render() {
-    var inputForm;
-    var table;
-    var rows;
-    var editScreen;
-    var output;
-     
-
     
-  editScreen = (<span>
-            <h2>Edit your inventory</h2>
-              <form onSubmit={this._upDate.bind(this)}>
-                <input type="text" value={this.state.editInput.name} onChange={this._formChange} name="name" />
-                <input type="text" value={this.state.editInput.quantity} onChange={this._formChange} name="description"/>
-                <input type="text" value={this.state.editInput.description} onChange={this._formChange} name="quantity"/>
-                <input type="text" className="hideinput" value={this.state.editInput.uuid} name="uuid" />
-                <button type="submit">Submit</button>
-                </form>
-            </span>);  
-
-
-  inputForm = <span>
-      <h2>Please enter your inventory Item</h2>
-      <form onSubmit={this.onSubmit.bind(this)}>
-        <input type="text" placeholder="Enter Name..." name="name" />
-        <input type="text" placeholder="Enter description..." name="description" />
-        <input type="text" placeholder="Enter quantity..." name="quantity" />
-        <button type="submit">Submit</button>
-      </form>
-    </span>
-
-
-  var self = this;
-  rows = this.state.inventory.map(function (item, index) {
-      return Object.keys(item).map(function (s) {
-
-        return (
-          <tr key={s}>
-            <th> {item[s].inventory.name} </th>
-            <th> {item[s].inventory.description} </th>
-            <th> {item[s].inventory.quantity} </th>
-            <th><button value={item[s].inventory.uuid} onClick={self._handleClick}>Delete</button> </th>
-            <th><button value={item[s].inventory.uuid} onClick={self._handleButton}>Edit</button></th>
-          </tr>
-        )
-      });
-    });
-
-  table = (
-      <span>
-        <Table striped bordered condensed hover>
-          <thead>
-            <tr>
-              <th> Name </th>
-              <th> Description </th>
-              <th> Quantity </th>
-              <th> Delete </th>
-              <th> Edit </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows}
-          </tbody>
-        </Table>
-      </span>
-    )
-
-if(this.state.edit){
-  output=(
-    <div className='App'>
-      <div className="App-header">
-        <h2> Inventory App </h2>
-      </div>
-      <div className="text-center" >
-          {editScreen}
-      </div>
-  </div>);
-} else {
-    output =(
+    return (
       <div className="App">
-        <div className="App-header">
-          <h2>React-JS-InventoryApp</h2>
-        </div>
-        <div className="text-center">
-          {inputForm}
-          <br />
-          {table}
-        </div>
-    </div>);
-  }
-
-    return  (
-      <div className="App">
-      {output}
+        <FormView data={this} />
       </div>
     );
-     
+  }
 }
-}
-
 
 
 export default App;
