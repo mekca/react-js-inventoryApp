@@ -1,9 +1,9 @@
 .App {
   text-align: center;
+  color: white;
 }
 
 .App-header {
-  background-color: #222;
   height: 150px;
   padding: 20px;
   color: white;
@@ -20,4 +20,18 @@
 
 .hideinput{
   display: none;
+}
+.text-center {
+  margin: 0 100px;
+}
+.button{
+  color: black;
+}
+th {
+  background-color: deepskyblue;
+  color: black;
+}
+html, div {
+  background-image: url(https://static.pexels.com/photos/34592/pexels-photo.jpg);
+  background-size: 600px;
 }

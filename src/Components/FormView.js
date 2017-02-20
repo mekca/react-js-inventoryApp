@@ -1,5 +1,7 @@
 import React, { Component } from 'react';
-import { Table } from 'react-bootstrap';
+import { Table, Button } from 'react-bootstrap';
+
+
 
 //import './App.js';
 //import './App.css';
@@ -23,7 +25,7 @@ class app extends Component {
                 <input type="text" placeholder="Enter Name..." name="name" />
                 <input type="text" placeholder="Enter description..." name="description" />
                 <input type="text" placeholder="Enter quantity..." name="quantity" />
-                <button type="submit">Submit</button>
+                <button className="button" type="submit">Submit</button>
             </form>
         </span>
 
@@ -55,7 +57,7 @@ class app extends Component {
 
         table = (
             <span>
-                <Table striped bordered condensed hover>
+                <Table striped bordered condensed hover >
                     <thead>
                         <tr>
                             <th> Name </th>
